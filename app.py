@@ -1,0 +1,32 @@
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Handle file upload and QR code scanning"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file selected'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+
+        try:
+            # Scan QR code from image
+            result = scanner.scan_qr_from_image(filepath)
+        finally:
+            # Clean up uploaded file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
